@@ -1,17 +1,21 @@
 #!/bin/bash
 
-if [[ $EUID -ne 0 ]]; then
-  echo
-  echo "This script must be run as root!"
-  echo "Exiting..."
-  echo
-  sleep 2
-  exit 10
-fi
+
+# ================================ FUNCTIONS ================================= #
+root_check() {
+  if [[ $EUID -ne 0 ]]; then
+    echo
+    echo "This script must be run as root!"
+    echo "Exiting..."
+    echo
+    sleep 2
+    exit 10
+  fi
+}
 
 
 start_tftpd() {
-  chmod +r /private/tftpboot/*
+  chmod a+rw /private/tftpboot/*
   launchctl load -F /System/Library/LaunchDaemons/tftp.plist
   launchctl start com.apple.tftpd
   echo
@@ -24,6 +28,7 @@ start_tftpd() {
 stop_tftpd() {
   launchctl stop com.apple.tftpd
   launchctl unload -F /System/Library/LaunchDaemons/tftp.plist
+  chmod 644 /private/tftpboot/*
   echo
   netstat -an | grep '*.69'
   echo
@@ -39,16 +44,25 @@ no_flags() {
   echo "--stop"
   echo
   echo
-  echo "NOTE: Running --start adds READ permissions to all files in /private/tftpboot/,"
-  echo "which is needed in order for TFTP clients to download the files as necessary."
+  echo "--start sets permissions to at least 666 for all files in /private/tftpboot/,"
+  echo "which is required for TFTP clients to download/upload files to/from /private/tftpboot/."
+  echo 
+  echo "--stop sets permissions to 644 for all files in /private/tftpboot/."
   echo
-  echo "Place all files you want to serve into /private/tftpboot/ FIRST, then run with --start."
-  echo "Otherwise, either run 'sudo chmod +r /private/tftpboot/*' OR run --stop, then --start."
+  echo "Place all files you want to serve/receive into /private/tftpboot/ FIRST, then run --start."
+  echo "Otherwise, either run 'sudo chmod a+rw /private/tftpboot/*' OR run --stop, then --start."
+  echo
+  echo "NOTE: If receiving files, you must run 'sudo touch /private/tftpboot/[filename]',."
+  echo "before starting the TFTP server. If you created the empty file after starting the"
+  echo "TFTP server, run --stop, then --start."
   echo
   sleep 2
   exit 20
 }
 
+
+# ================================= RUN IT! ================================== #
+root_check
 
 if [[ $# -gt 0 ]]; then
   case "$1" in
@@ -74,6 +88,5 @@ if [[ $# -gt 0 ]]; then
       ;;
   esac
 fi
-
 
 no_flags
